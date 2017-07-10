@@ -8,8 +8,8 @@
 // GLOBAL Vars
 
 redsfs_fs r_fsys;
-
 redsfs_fh r_fhand;
+uint32_t seek_chunk; // For seeking through filesystem (ls)
 
 // File in/out cache
 uint8_t * redsfs_cache;
@@ -26,8 +26,7 @@ int32_t redsfs_next_empty_block()
 
     // Check we are mounted
     if (r_fsys.mounted != 1) {
-	    //printf(" Not mounted error %d\r\n", r_fsys.mounted);
-	    return -1;
+        return -1;
     }
 
     // Check the filesystem and find the first block not marked as used.
@@ -41,6 +40,38 @@ int32_t redsfs_next_empty_block()
 	}
     }
     return -2;
+}
+
+char * redsfs_next_file()
+{
+    uint32_t chunk;
+    uint8_t rres;
+
+    // Check we are mounted
+    if (r_fsys.mounted != 1) {
+        return NULL;
+    }
+
+    // Check and seek through the file system
+    for ( chunk = seek_chunk; chunk < r_fsys.fs_end; chunk += r_fsys.fs_block_size ) {
+        rres = r_fsys.call_read_f ( chunk, 40, redsfs_seek_cache );
+	// Do we have a new file header block?
+        if ( ((redsfs_fb*)redsfs_seek_cache)->flags & ( FB_IS_FIRST ) ) {
+            // Update our current seeking mark to the next one
+	    seek_chunk = chunk + r_fsys.fs_block_size;
+	    // Read the current full block, with filename
+	    rres = r_fsys.call_read_f ( chunk, 256, redsfs_seek_cache );
+	    // Return the file name of the current block
+            return ((redsfs_fb*)redsfs_seek_cache)->data.namedata;
+	} else {
+	    // Keep going until we find the next populated first block
+            continue;
+	}
+    }
+    // Update (the last block)
+    seek_chunk = chunk;
+    // Finish up returning NULL, like readdir.
+    return NULL;
 }
 
 // Seek the file chunk pointer and size pointer to one past the last byte of the current file.
@@ -98,6 +129,9 @@ uint8_t redsfs_mount(redsfs_fs *rfs)
     r_fsys.call_write_f = rfs->call_write_f;
 
     r_fsys.mounted = 1;
+    
+    // Seeking/ls for file system
+    seek_chunk = r_fsys.fs_start;
 
     redsfs_cache = malloc(r_fsys.fs_block_size);
     memset (redsfs_cache, 0, r_fsys.fs_block_size);

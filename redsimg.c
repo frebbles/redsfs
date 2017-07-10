@@ -11,6 +11,8 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <sys/mman.h>
+#include <sys/stat.h>
+#include <sys/types.h>
 #include <string.h>
 #include <dirent.h>
 
@@ -97,8 +99,62 @@ int import_dir ( char * path )
     return 0;
 }
 
+int export_file ( char * dir, char * path )
+{
+    int n;
+    char buf[256];
+    int filepathlen;
+    int pathlen;
+    int dirlen;
+    char * filepath;
+
+    // Open reds file for writing
+    int file = redsfs_open( path, MODE_WRITE );
+    if (file < 0) return -1;
+
+    // Open file for reading to copy into redsfs
+    filepathlen = strlen(dir) + strlen(path) + 2;
+    pathlen = strlen(path);
+    dirlen = strlen(dir);
+    filepath = malloc( filepathlen );
+    memset( filepath, 0, filepathlen );
+    memcpy( filepath, dir, dirlen );
+    memcpy( filepath+dirlen, "/", 1);
+    memcpy( filepath+dirlen+1, path, pathlen);
+    printf("Write path is: %s\r\n",filepath);
+    
+    FILE * fout = fopen( filepath, "w" );
+    if (fout < 0) return (int)fout;
+    
+    while ((n = redsfs_read( buf, sizeof(buf)))) {
+        retcode = fwrite ( buf, 1, n, fout );
+    }
+
+    // Close the reds file (complete the copy);
+    redsfs_close();
+    fclose(fout);
+    free(filepath);
+    return 0;
+}
+
 int export_dir ( char * path )
 {
+    uint8_t file;
+    uint8_t n;
+    char * fname;
+
+    // Check our export directory has been created
+    struct stat st = {0};
+    if (stat(path, &st) == -1) {
+        mkdir(path, 0755);
+    }
+
+    // Start export/list
+    printf("Exporting/Listing files...\r\n");
+    while ( (fname = redsfs_next_file()) != NULL ) {
+        printf("File: %s \r\n", fname);
+        export_file( path, fname );
+    }
 
     return 0;
 }
@@ -170,18 +226,7 @@ int main( int argc, char *argv[] )
     printf("Mounting redsfs...\r\n");
     int rfmt = redsfs_mount( &redsfs_mnt );
 
-    /*
-    printf("Reading back file... \r\n");
-    file = redsfs_open("random.txt", MODE_READ );
- 
-    printf("Opened...\r\n ");
-
-    while (n = redsfs_read (buf, sizeof(buf))) {
-      printf("READ: %d bytes: %s \r\n", n, buf);
-    }
-    
-    redsfs_close();
-    */
+    //export_dir("./exp_filesys" );
 
     import_dir( "./filesystem" );
 
