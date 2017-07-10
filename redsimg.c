@@ -21,7 +21,7 @@ static uint8_t *flash;
 
 void die(char * msg)
 {
-    //printf("ERROR: %s \r\n", msg);
+    printf("ERROR: %s \r\n", msg);
     exit(-1);
 }
 
@@ -64,7 +64,8 @@ int import_file ( char * dir, char * path )
         if (fin < 0) return fin;
 
     while ((n = read(fin, buf, sizeof(buf)))) {
-        redsfs_write ( buf, n );
+        retcode = redsfs_write ( buf, n );
+        if (retcode < 0) die("Write issue (out of space?)\r\n");
     }
 
     // Close the reds file (complete the copy);

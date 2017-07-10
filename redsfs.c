@@ -19,7 +19,7 @@ uint8_t * redsfs_cache;
 uint8_t * redsfs_seek_cache;
 
 // Helper functions
-uint32_t redsfs_next_empty_block()
+int32_t redsfs_next_empty_block()
 {
     uint32_t chunk;
     uint8_t rres;
@@ -160,7 +160,7 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
     if ( r_fhand.handle == -1 ) {
         chunk = redsfs_next_empty_block();
 
-	//printf("Next chunk found at %d\r\n", chunk);
+	printf("Next chunk found at %d\r\n", chunk);
         if (chunk < 0)
             return -1;
 
@@ -262,20 +262,14 @@ size_t redsfs_write( void * buf, size_t size )
     size_t writeSz = 0;
     size_t cacheLeft = 0;
     size_t writtenBytes = 0;
-    uint32_t nextBlkAddr = 0;
+    int32_t nextBlkAddr = 0;
     int rres;
 
     // While we have bytes to write.
     while (toWrite > 0)
     {
         // Check to see how many bytes are left in this chunk
-        //if ( ((redsfs_fb*) &redsfs_cache)->flags & FB_IS_FIRST) {
-		cacheLeft = BLK_SIZE - r_fhand.blk_curoffset;
-                //cacheLeft = ( ((redsfs_fb*) &redsfs_cache)->data.size + BLK_OFFSET_FIRST) - r_fhand.blk_curoffset;
-	//} else {
-	        //cacheLeft = ( ((redsfs_fb*) &redsfs_cache)->data.size + BLK_OFFSET_CHUNK) - r_fhand.blk_curoffset;
-        //}
-	//printf (" Got %d bytes to write, cacheLeft in block %d \r\n ", toWrite, cacheLeft );
+	cacheLeft = BLK_SIZE - r_fhand.blk_curoffset;
 
 	// If the amount to write is less than the cache leftover ensure we dont over write
 	if (toWrite >= cacheLeft) {
@@ -303,11 +297,18 @@ size_t redsfs_write( void * buf, size_t size )
             // Next block pointer needs to be populated
             // need to write usage flags to this current block first
             rres = r_fsys.call_write_f ( r_fhand.f_cur_blk, 256, redsfs_cache );
+
+	    // Find the next available block
 	    nextBlkAddr = redsfs_next_empty_block();
-	    ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr;
 
 	    // Re-Commit this block to memory with next block addr and setup the new one.
             rres = r_fsys.call_write_f ( r_fhand.f_cur_blk, 256, redsfs_cache );
+
+	    // If we've not got a new block (no space left) exit
+	    if (nextBlkAddr >= 0) 
+	      ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr;
+            else
+              return nextBlkAddr;
 
             // Setup new block
 	    r_fhand.f_cur_blk = nextBlkAddr;
