@@ -1,7 +1,6 @@
-=== 
-REDSFS
+# REDSFS
 
-REally Dang Simple File System...
+## REally Dang Simple File System...
 
 Writted out of frustration for the very useful but over complicated SPIFFS module. 
 
@@ -11,5 +10,5 @@ file system on a micro like the ESP8266/8285/32, being built by an x86 executabl
 
 Test the redsimg with
 
-redsimg -c 2048 -f reds.img
+`redsimg -c 2048 -f reds.img`
 
