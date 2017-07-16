@@ -30,13 +30,15 @@ void die(char * msg)
 uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest ) 
 {
     //printf ("Called READ on addr offset dec %d - %p >>> %p ( %d ) \r\n", addr, (flash+addr), dest, size );
-    return (uint32_t) memcpy (dest, flash + addr, size );
+    memcpy (dest, flash + addr, size );
+    return 0;
 }
 
 uint32_t linux_fs_write ( uint32_t addr, uint32_t size, uint8_t * src )
 {
     //printf ("Called WRITE on addr offset dec %d - %p <<< %p ( %d ) \r\n", addr, (flash+addr), src, size );
-    return (uint32_t) memcpy ( flash + addr,  src, size );
+    memcpy ( flash + addr,  src, size );
+    return 0;
 }
 
 int import_file ( char * dir, char * path )
@@ -124,7 +126,7 @@ int export_file ( char * dir, char * path )
     printf("Write path is: %s\r\n",filepath);
     
     FILE * fout = fopen( filepath, "w" );
-    if (fout < 0) return (int)fout;
+    if (fout < 0) return -1;
     
     while ((n = redsfs_read( buf, sizeof(buf)))) {
         retcode = fwrite ( buf, 1, n, fout );
@@ -228,7 +230,12 @@ int main( int argc, char *argv[] )
 
     //export_dir("./exp_filesys" );
 
-    import_dir( "./filesystem" );
+    //import_dir( "./filesystem" );
+
+    int file = redsfs_open( "testAppend.txt", MODE_APPEND );
+    redsfs_write("NEWTEST1234567890", 17);
+    redsfs_close();
+
 
     printf("Unmounting... \r\n");
     redsfs_unmount();

@@ -97,7 +97,8 @@ void redsfs_seek_to_end()
     {
 	rres = r_fsys.call_read_f ( chunk, 256, redsfs_cache );
 	// Check if this is the last block, if not go to next one.
-        if (( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_USED & FB_IS_LAST ) )
+        if (( ( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_USED ) &&
+              ( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_LAST ) ) )
 	{
 	    // Set the pointer to the current data size, dependant on whether first or othe block.
 	    if ( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_FIRST ) {
@@ -113,6 +114,7 @@ void redsfs_seek_to_end()
             chunk += r_fsys.fs_block_size;
 	}
     }
+    //printf("Returning at chunk %d with offset at %d\r\n", r_fhand.f_cur_blk, r_fhand.blk_curoffset );
     return;
 }
 
@@ -173,6 +175,7 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
 	if ( ((redsfs_fb*)redsfs_cache)->flags & ( FB_IS_FIRST | FB_IS_USED ) ) {
             // Check the file name
 	    char * fb_fname = ((redsfs_fb*)redsfs_cache)->data.namedata;
+	    printf("Reqd file: %s\r\n", fb_fname);
 	    // Found the file in this block
 	    if ( strcmp( fb_fname, fname ) == 0 )
 	    {
@@ -180,7 +183,10 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
 		r_fhand.f_start_blk = chunk;
 		r_fhand.f_cur_blk = chunk;
 		r_fhand.blk_curoffset = BLK_OFFSET_FIRST;
-		r_fhand.mode = MODE_READ;
+		r_fhand.mode = mode;
+		printf ("Opened file %s size: %d\r\n", ((redsfs_fb*)redsfs_cache)->data.namedata, ((redsfs_fb*)redsfs_cache)->data.size );
+		if ( mode == MODE_APPEND )
+                    redsfs_seek_to_end();
 		return 0;
 	    }
 	}
@@ -194,7 +200,7 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
     if ( r_fhand.handle == -1 ) {
         chunk = redsfs_next_empty_block();
 
-	printf("Next chunk found at %d\r\n", chunk);
+	//printf("Next chunk found at %d\r\n", chunk);
         if (chunk < 0)
             return -1;
 
@@ -221,7 +227,7 @@ void redsfs_close()
     r_fhand.handle = -1;
     
     // If we are writing, then a block exists in cache to write to memory
-    if ( r_fhand.mode == MODE_WRITE ) {
+    if ( ( r_fhand.mode == MODE_WRITE ) || (r_fhand.mode == MODE_APPEND ) ) {
         // Complete the flags (ensure "FB_IS_LAST" is set)
         ((redsfs_fb*)redsfs_cache)->flags |= ( FB_IS_USED | FB_IS_LAST );
         // Write to mem
@@ -328,6 +334,9 @@ size_t redsfs_write( void * buf, size_t size )
 	//printf(" toWrite now %d, writeSz was %d, chunk size is currently %d \r\n", toWrite, writeSz, ((redsfs_fb*)redsfs_cache)->data.size);
         // Have we filled the current block?
 	if ( (r_fhand.blk_curoffset + writeSz) >= BLK_SIZE )  {
+	    // Unset the last block flag
+            ((redsfs_fb*)redsfs_cache)->flags &= ~(FB_IS_LAST);
+
             // Next block pointer needs to be populated
             // need to write usage flags to this current block first
             rres = r_fsys.call_write_f ( r_fhand.f_cur_blk, 256, redsfs_cache );

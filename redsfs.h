@@ -25,6 +25,7 @@ typedef struct redsfs__filesystem {
 
 #define MODE_READ   0
 #define MODE_WRITE  1
+#define MODE_APPEND 2
 
 typedef struct redsfs__filehandle {
     int8_t 	handle;         // Handle = 1 for basic operation 0 is "not open"
