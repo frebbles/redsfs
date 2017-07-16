@@ -241,6 +241,26 @@ void redsfs_close()
     }
 }
 
+uint8_t redsfs_delete( char * name )
+{
+    // Open the file for reading ( open file at the beginning )
+    redsfs_open ( name, MODE_READ );
+
+    // For all the bits of the file scrub and delete
+    while ( ((redsfs_fb*)redsfs_cache)->next_blk_addr )
+    {
+        uint32_t nextBlk = ((redsfs_fb*)redsfs_cache)->next_blk_addr ;
+        memset( redsfs_cache, 0, r_fsys.fs_block_size );
+	r_fsys.call_write_f ( r_fhand.f_cur_blk, r_fsys.fs_block_size, redsfs_cache );
+	r_fsys.call_read_f ( nextBlk, r_fsys.fs_block_size, redsfs_cache );
+    } 
+    // Last block wont have a next address, just remove it
+    memset( redsfs_cache, 0, r_fsys.fs_block_size );
+    r_fsys.call_write_f ( r_fhand.f_cur_blk, r_fsys.fs_block_size, redsfs_cache );
+
+    return 0;
+}
+
 size_t redsfs_read( void * buf, size_t size )
 {
     size_t toFetch = size;

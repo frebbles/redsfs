@@ -72,6 +72,7 @@ char * redsfs_next_file();
 int32_t redsfs_next_empty_block();
 uint8_t redsfs_open(char * fname, uint8_t mode);
 void redsfs_close();
+uint8_t redsfs_delete(char * name);
 void redsfs_seek_to_end();
 uint8_t redsfs_unmount();
 size_t redsfs_write( void * buf, size_t size );

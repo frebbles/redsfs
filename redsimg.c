@@ -236,6 +236,8 @@ int main( int argc, char *argv[] )
     redsfs_write("NEWTEST1234567890", 17);
     redsfs_close();
 
+    redsfs_delete("testAppend.txt");
+
 
     printf("Unmounting... \r\n");
     redsfs_unmount();
