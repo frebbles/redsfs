@@ -184,7 +184,6 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
 		r_fhand.f_cur_blk = chunk;
 		r_fhand.blk_curoffset = BLK_OFFSET_FIRST;
 		r_fhand.mode = mode;
-		printf ("Opened file %s size: %d\r\n", ((redsfs_fb*)redsfs_cache)->data.namedata, ((redsfs_fb*)redsfs_cache)->data.size );
 		if ( mode == MODE_APPEND )
                     redsfs_seek_to_end();
 		return 0;
