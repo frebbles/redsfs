@@ -21,12 +21,14 @@
 static int retcode = 0;
 static uint8_t *flash;
 
+// Die with an error message
 void die(char * msg)
 {
     printf("ERROR: %s \r\n", msg);
     exit(-1);
 }
 
+// Mapped function for reading (for micros this is usually a SPI/FLASH read function call)
 uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest ) 
 {
     //printf ("Called READ on addr offset dec %d - %p >>> %p ( %d ) \r\n", addr, (flash+addr), dest, size );
@@ -34,6 +36,7 @@ uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest )
     return 0;
 }
 
+// Mapped function for writing (for micros this is usually a SPI/FLASH write function call)
 uint32_t linux_fs_write ( uint32_t addr, uint32_t size, uint8_t * src )
 {
     //printf ("Called WRITE on addr offset dec %d - %p <<< %p ( %d ) \r\n", addr, (flash+addr), src, size );
@@ -184,14 +187,12 @@ int main( int argc, char *argv[] )
        }
     }
     
-    //printf("Attempting open of %s \r\n", fname);
     int fd = open (fname, (create ? (O_CREAT | O_TRUNC) : 0) | O_RDWR, 0660);
     if (fd == -1)
     die ("File not opened");
 
     if (create)
     {
-	//printf("Seeking to end of file/creating \r\n");
         if (lseek (fd, sz -1, SEEK_SET) == -1)
             die ("lseek");
         if (write (fd, "", 1) != 1)
@@ -208,14 +209,12 @@ int main( int argc, char *argv[] )
     if (sz & (BLK_SIZE -1)) 
         die ("file size not multiple of page size");
 
-    //printf("Mapping...\r\n");
     flash = mmap (0, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (!flash)
         die ("mmap");
     else
 	printf("Got flash pointer at %p to %p \r\n", flash, (flash+sz)); 
     if (create) {
-	//printf("Zeroing data...\r\n");
         memset (flash, 0, sz);
     }
     redsfs_fs redsfs_mnt;
@@ -228,16 +227,16 @@ int main( int argc, char *argv[] )
     printf("Mounting redsfs...\r\n");
     int rfmt = redsfs_mount( &redsfs_mnt );
 
-    //export_dir("./exp_filesys" );
 
-    //import_dir( "./filesystem" );
+    import_dir( "./filesystem" );
 
-    int file = redsfs_open( "testAppend.txt", MODE_APPEND );
-    redsfs_write("NEWTEST1234567890", 17);
-    redsfs_close();
+    export_dir("./exp_filesys" );
+    
+    //int file = redsfs_open( "testAppend.txt", MODE_APPEND );
+    //redsfs_write("NEWTEST1234567890", 17);
+    //redsfs_close();
 
-    redsfs_delete("testAppend.txt");
-
+    //redsfs_delete("testAppend.txt");
 
     printf("Unmounting... \r\n");
     redsfs_unmount();
@@ -246,3 +245,4 @@ int main( int argc, char *argv[] )
     close(fd);
 
 }
+
