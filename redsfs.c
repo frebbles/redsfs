@@ -172,10 +172,10 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
     {
         rres = r_fsys.call_read_f ( chunk, r_fsys.fs_block_size, redsfs_cache );
         // Check if block is USED and is FIRST
-	if ( ((redsfs_fb*)redsfs_cache)->flags & ( FB_IS_FIRST | FB_IS_USED ) ) {
+	if ( ( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_FIRST ) &&
+	     ( ((redsfs_fb*)redsfs_cache)->flags & FB_IS_USED ) ) {
             // Check the file name
 	    char * fb_fname = ((redsfs_fb*)redsfs_cache)->data.namedata;
-	    printf("Reqd file: %s\r\n", fb_fname);
 	    // Found the file in this block
 	    if ( strcmp( fb_fname, fname ) == 0 )
 	    {
@@ -281,7 +281,7 @@ size_t redsfs_read( void * buf, size_t size )
 	} else {
           cacheLeft = ( ((redsfs_fb*)redsfs_cache)->data.size + BLK_OFFSET_CHUNK) - r_fhand.blk_curoffset;
         }
-
+        
 	// Might get to the end of the buffer and still have more to request? Break here.
 	if (cacheLeft <= 0)
             break;
@@ -297,7 +297,7 @@ size_t redsfs_read( void * buf, size_t size )
         memcpy( buf + (size - toFetch), redsfs_cache + r_fhand.blk_curoffset, readSz );
     
         // Are we into the next block?
-        if ( (r_fhand.blk_curoffset + cacheLeft) >= BLK_SIZE ) {
+        if ( (r_fhand.blk_curoffset + readSz) >= BLK_SIZE ) {
             // If we are at the end of the block, move to the next block
             r_fhand.f_cur_blk = ((redsfs_fb*)redsfs_cache)->next_blk_addr;
     	    // Set the next block's offset
@@ -362,7 +362,8 @@ size_t redsfs_write( void * buf, size_t size )
 
 	    // Find the next available block
 	    nextBlkAddr = redsfs_next_empty_block();
-
+	    ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr;
+            
 	    // Re-Commit this block to memory with next block addr and setup the new one.
             rres = r_fsys.call_write_f ( r_fhand.f_cur_blk, 256, redsfs_cache );
 
