@@ -261,7 +261,7 @@ uint8_t redsfs_delete( char * name )
     return 0;
 }
 
-size_t redsfs_read( void * buf, size_t size )
+size_t redsfs_read( char * buf, size_t size )
 {
     size_t toFetch = size;
     size_t cacheLeft = 0;
@@ -315,7 +315,7 @@ size_t redsfs_read( void * buf, size_t size )
     return readBytes;
 }
 
-size_t redsfs_write( void * buf, size_t size )
+size_t redsfs_write( char * buf, size_t size )
 {
     size_t toWrite = size;
     size_t writeSz = 0;

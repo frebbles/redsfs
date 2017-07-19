@@ -75,5 +75,5 @@ void redsfs_close();
 uint8_t redsfs_delete(char * name);
 void redsfs_seek_to_end();
 uint8_t redsfs_unmount();
-size_t redsfs_write( void * buf, size_t size );
-size_t redsfs_read( void * buf, size_t size );
+size_t redsfs_write( char * buf, size_t size );
+size_t redsfs_read( char * buf, size_t size );
