@@ -1,7 +1,11 @@
 /*
  * REDSFS Image creator and reader tool
  *
+ * Author: Farran Rebbeck
+ *         https://github.com/frebbles/redsfs
+ *
  */
+
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -31,7 +35,6 @@ void die(char * msg)
 // Mapped function for reading (for micros this is usually a SPI/FLASH read function call)
 uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest ) 
 {
-    //printf ("Called READ on addr offset dec %d - %p >>> %p ( %d ) \r\n", addr, (flash+addr), dest, size );
     memcpy (dest, flash + addr, size );
     return 0;
 }
@@ -39,7 +42,6 @@ uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest )
 // Mapped function for writing (for micros this is usually a SPI/FLASH write function call)
 uint32_t linux_fs_write ( uint32_t addr, uint32_t size, uint8_t * src )
 {
-    //printf ("Called WRITE on addr offset dec %d - %p <<< %p ( %d ) \r\n", addr, (flash+addr), src, size );
     memcpy ( flash + addr,  src, size );
     return 0;
 }
@@ -66,7 +68,6 @@ int import_file ( char * dir, char * path )
     memcpy( filepath, dir, dirlen );
     memcpy( filepath+dirlen, "/", 1);
     memcpy( filepath+dirlen+1, path, pathlen);
-    printf("Path is: %s\r\n",filepath);
     int fin = open( filepath, O_RDONLY );
         if (fin < 0) return fin;
 
@@ -126,7 +127,6 @@ int export_file ( char * dir, char * path )
     memcpy( filepath, dir, dirlen );
     memcpy( filepath+dirlen, "/", 1);
     memcpy( filepath+dirlen+1, path, pathlen);
-    printf("Write path is: %s\r\n",filepath);
     
     FILE * fout = fopen( filepath, "w" );
     if (fout < 0) return -1;
@@ -145,7 +145,6 @@ int export_file ( char * dir, char * path )
 int export_dir ( char * path )
 {
     uint8_t file;
-    uint8_t n;
     char * fname;
 
     // Check our export directory has been created
@@ -157,10 +156,79 @@ int export_dir ( char * path )
     // Start export/list
     printf("Exporting/Listing files...\r\n");
     while ( (fname = redsfs_next_file()) != NULL ) {
-        printf("File: %s \r\n", fname);
+        printf("Exporting file: %s \r\n", fname);
         export_file( path, fname );
     }
 
+    return 0;
+}
+
+void list_files()
+{
+    uint8_t file;
+    char * fname;
+
+    printf("Files in redsfs image:\r\n");
+    while ( ( fname = redsfs_next_file() ) != NULL ) {
+        printf(" - %s\r\n", fname);
+    }
+}
+
+int readwrite_test()
+{
+    char buf[256];
+    int bufSz;
+
+    printf ("Opening a file to write...\r\n");
+    int file = redsfs_open( "test.txt", MODE_WRITE );
+    printf ("Writing to file\r\n");
+    if (redsfs_write("The quick brown fox jumps over the lazy dog... ", 48) == 0) 
+    {
+	redsfs_close();
+	redsfs_unmount();
+        die("Couldn't write to redsfs...");
+    }
+    printf("Closing file");
+    redsfs_close();
+
+    printf("Reopening read to read contents back...\r\n");
+    file = redsfs_open("test.txt", MODE_WRITE );
+    bufSz = redsfs_read(buf, 256);
+    if (bufSz > 0)
+    {
+        printf("READ: %s\r\n", buf);
+    } else {
+	redsfs_close();
+	redsfs_unmount();
+        die("Could not read from redsfs...");
+    }
+
+    printf ("Opening a file to append some more\r\n");
+    file = redsfs_open( "test.txt", MODE_APPEND );
+    printf ("Writing to file\r\n");
+    if (redsfs_write("\nThe slow wharty sloth crawls under the cosy blanket... ", 48) == 0)          
+    {
+        redsfs_close();
+        redsfs_unmount();
+        die("Couldn't write to redsfs...");
+    }
+    printf("Closing file");
+    redsfs_close();
+
+    printf("Reopening to read appended text\r\n");
+    file = redsfs_open("test.txt", MODE_WRITE );
+    bufSz = redsfs_read(buf, 256);
+    if (bufSz > 0) 
+    {
+        printf("READ: %s\r\n", buf);
+    } else {
+        redsfs_close();
+        redsfs_unmount();
+        die("Could not read from redsfs...");
+    }
+    printf("Deleting file");
+    redsfs_delete("test.txt");
+    printf("Read/Write tests passed");
     return 0;
 }
 
@@ -169,20 +237,21 @@ int main( int argc, char *argv[] )
     int opt;
     const char *fname = 0;
     bool create = false;
-    enum { CMD_NONE, CMD_LIST, CMD_INTERACTIVE, CMD_SCRIPT } command = CMD_NONE;
+    enum { CMD_NONE, CMD_LIST, CMD_IMPORT, CMD_EXPORT, CMD_TEST } command = CMD_NONE;
     size_t sz = 0;
-    const char *script_name = 0;
+    char *imp_dir = 0;
+    char *exp_dir = 0;
 
-    //printf("Size of the redsfs_fb %d \r\n", sizeof(redsfs_fb) );
-    while ((opt = getopt (argc, argv, "f:c:lir:")) != -1)
+    while ((opt = getopt (argc, argv, "f:c:li:e:t:")) != -1)
     {
         switch (opt)
 	{
           case 'f': fname = optarg; break;
           case 'c': create = true; sz = strtoul (optarg, 0, 0); break;
           case 'l': command = CMD_LIST; break;
-          case 'i': command = CMD_INTERACTIVE; break;
-          case 'r': command = CMD_SCRIPT; script_name = optarg; break;
+          case 'i': command = CMD_IMPORT; imp_dir = optarg; break;
+          case 'e': command = CMD_EXPORT; exp_dir = optarg; break;
+          case 't': command = CMD_TEST; break;
           default: die("no options");
        }
     }
@@ -227,16 +296,20 @@ int main( int argc, char *argv[] )
     printf("Mounting redsfs...\r\n");
     int rfmt = redsfs_mount( &redsfs_mnt );
 
-
-    import_dir( "./filesystem" );
-
-    export_dir("./exp_filesys" );
+    if (command == CMD_IMPORT)
+    { 
+        import_dir( imp_dir );
+    }
     
-    //int file = redsfs_open( "testAppend.txt", MODE_APPEND );
-    //redsfs_write("NEWTEST1234567890", 17);
-    //redsfs_close();
+    if (command == CMD_EXPORT)
+    {
+        export_dir( exp_dir );
+    }
 
-    //redsfs_delete("testAppend.txt");
+    if (command == CMD_LIST)
+    {
+        list_files(); 
+    }
 
     printf("Unmounting... \r\n");
     redsfs_unmount();
