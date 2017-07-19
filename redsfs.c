@@ -129,19 +129,17 @@ uint8_t redsfs_mount(redsfs_fs *rfs)
     // Calling functions copied
     r_fsys.call_read_f = rfs->call_read_f;
     r_fsys.call_write_f = rfs->call_write_f;
-
     r_fsys.mounted = 1;
     
     // Seeking/ls for file system
     seek_chunk = r_fsys.fs_start;
 
+    // Allocate memory and clear
     redsfs_cache = malloc(r_fsys.fs_block_size);
     memset (redsfs_cache, 0, r_fsys.fs_block_size);
-    //printf(" redsfs_cache at %p \r\n", redsfs_cache);
     redsfs_seek_cache = malloc(r_fsys.fs_block_size);
     memset (redsfs_seek_cache, 0, r_fsys.fs_block_size);
 
-    //printf(" Mounted : %d\r\n", r_fsys.mounted);
     return 0;
 
 }
@@ -151,6 +149,8 @@ uint8_t redsfs_unmount()
     // Check if mounted flag set, unset.
     if (r_fsys.mounted == 1) r_fsys.mounted = 0;
         else return -1;
+
+    // Free/release allocated memory
     free(redsfs_cache);
     redsfs_cache = 0;
     free(redsfs_seek_cache);
