@@ -182,17 +182,17 @@ int readwrite_test()
     printf ("Opening a file to write...\r\n");
     int file = redsfs_open( "test.txt", MODE_WRITE );
     printf ("Writing to file\r\n");
-    if (redsfs_write("The quick brown fox jumps over the lazy dog... ", 48) == 0) 
+    if (redsfs_write("The quick brown fox jumps over the lazy dog... ", 47) == 0) 
     {
 	redsfs_close();
 	redsfs_unmount();
         die("Couldn't write to redsfs...");
     }
-    printf("Closing file");
+    printf("Closing file\r\n");
     redsfs_close();
 
     printf("Reopening read to read contents back...\r\n");
-    file = redsfs_open("test.txt", MODE_WRITE );
+    file = redsfs_open("test.txt", MODE_READ );
     bufSz = redsfs_read(buf, 256);
     if (bufSz > 0)
     {
@@ -206,17 +206,18 @@ int readwrite_test()
     printf ("Opening a file to append some more\r\n");
     file = redsfs_open( "test.txt", MODE_APPEND );
     printf ("Writing to file\r\n");
-    if (redsfs_write("\nThe slow wharty sloth crawls under the cosy blanket... ", 48) == 0)          
+    if (redsfs_write("The slow wharty sloth crawls under the cosy blanket... ", 55) == 0)          
     {
         redsfs_close();
         redsfs_unmount();
         die("Couldn't write to redsfs...");
     }
-    printf("Closing file");
+    printf("Closing file\r\n");
     redsfs_close();
 
     printf("Reopening to read appended text\r\n");
-    file = redsfs_open("test.txt", MODE_WRITE );
+    file = redsfs_open("test.txt", MODE_READ );
+    memset(buf, 0, 256);
     bufSz = redsfs_read(buf, 256);
     if (bufSz > 0) 
     {
@@ -226,9 +227,9 @@ int readwrite_test()
         redsfs_unmount();
         die("Could not read from redsfs...");
     }
-    printf("Deleting file");
-    redsfs_delete("test.txt");
-    printf("Read/Write tests passed");
+    //printf("Deleting file\r\n");
+    //redsfs_delete("test.txt");
+    printf("Read/Write tests passed\r\n");
     return 0;
 }
 
@@ -242,7 +243,7 @@ int main( int argc, char *argv[] )
     char *imp_dir = 0;
     char *exp_dir = 0;
 
-    while ((opt = getopt (argc, argv, "f:c:li:e:t:")) != -1)
+    while ((opt = getopt (argc, argv, "f:c:li:e:t")) != -1)
     {
         switch (opt)
 	{
@@ -281,8 +282,6 @@ int main( int argc, char *argv[] )
     flash = mmap (0, sz, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     if (!flash)
         die ("mmap");
-    else
-	printf("Got flash pointer at %p to %p \r\n", flash, (flash+sz)); 
     if (create) {
         memset (flash, 0, sz);
     }
@@ -309,6 +308,11 @@ int main( int argc, char *argv[] )
     if (command == CMD_LIST)
     {
         list_files(); 
+    }
+    
+    if (command == CMD_TEST)
+    {
+        readwrite_test();
     }
 
     printf("Unmounting... \r\n");
