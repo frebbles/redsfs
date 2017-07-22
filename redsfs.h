@@ -69,6 +69,7 @@ typedef struct redsfs__fb {
 // Callable functions.
 uint8_t redsfs_mount(redsfs_fs *rfs);
 char * redsfs_next_file();
+ssize_t redsfs_cur_file_size();
 int32_t redsfs_next_empty_block();
 uint8_t redsfs_open(char * fname, uint8_t mode);
 void redsfs_close();

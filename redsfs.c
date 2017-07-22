@@ -74,6 +74,31 @@ char * redsfs_next_file()
     return NULL;
 }
 
+ssize_t redsfs_cur_file_size()
+{
+    uint32_t chunk;
+    ssize_t fileSize = 0;
+    uint8_t rres;
+
+    // Check mount and file
+    if (r_fsys.mounted != 1) {
+        return -1;
+    }
+
+    // Scan and add file sizes.
+    // Start with first
+    chunk = r_fhand.f_start_blk;
+    rres = r_fsys.call_read_f ( chunk, 40, redsfs_seek_cache );
+    while ( ( ((redsfs_fb*)redsfs_seek_cache)->flags & FB_IS_LAST) == 0) 
+    {
+        fileSize += ((redsfs_fb*)redsfs_seek_cache)->data.size;
+	chunk = ((redsfs_fb*)redsfs_seek_cache)->next_blk_addr;
+	rres = r_fsys.call_read_f ( chunk, 40, redsfs_seek_cache );
+    }
+    fileSize += ((redsfs_fb*)redsfs_seek_cache)->data.size;
+    return fileSize;
+}
+
 // Seek the file chunk pointer and size pointer to one past the last byte of the current file.
 void redsfs_seek_to_end()
 {

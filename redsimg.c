@@ -130,6 +130,8 @@ int export_file ( char * dir, char * path )
     
     FILE * fout = fopen( filepath, "w" );
     if (fout < 0) return -1;
+    ssize_t fSize = redsfs_cur_file_size();
+    printf("Size=%zd\r\n", fSize);
     
     while ((n = redsfs_read( buf, sizeof(buf)))) {
         retcode = fwrite ( buf, 1, n, fout );
@@ -321,5 +323,6 @@ int main( int argc, char *argv[] )
     munmap(flash, sz);
     close(fd);
 
+    return 0;
 }
 
