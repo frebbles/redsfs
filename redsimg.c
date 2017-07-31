@@ -42,6 +42,7 @@ uint32_t linux_fs_read ( uint32_t addr, uint32_t size, uint8_t * dest )
 // Mapped function for writing (for micros this is usually a SPI/FLASH write function call)
 uint32_t linux_fs_write ( uint32_t addr, uint32_t size, uint8_t * src )
 {
+    //printf("Writing to addr %x \r\n", addr);
     memcpy ( flash + addr,  src, size );
     return 0;
 }

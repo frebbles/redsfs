@@ -26,6 +26,7 @@ int32_t redsfs_next_empty_block()
 
     // Check we are mounted
     if (r_fsys.mounted != 1) {
+        printf("Not mounted error\r\n");
         return -1;
     }
 
@@ -36,9 +37,10 @@ int32_t redsfs_next_empty_block()
         if ( ((redsfs_fb*)redsfs_seek_cache)->flags & ( FB_IS_USED ) ) {
 	    continue;
 	} else {
-            return chunk;
+            return (chunk - r_fsys.fs_start);
 	}
     }
+    printf("Out of space\r\n");
     return -2;
 }
 
@@ -81,21 +83,27 @@ ssize_t redsfs_cur_file_size()
     uint8_t rres;
 
     // Check mount and file
-    if (r_fsys.mounted != 1) {
-        return -1;
+    if ( (r_fsys.mounted != 1) || (r_fhand.handle < 1) ) {
+        return 0;
     }
 
     // Scan and add file sizes.
     // Start with first
     chunk = r_fhand.f_start_blk;
     rres = r_fsys.call_read_f ( chunk, 40, redsfs_seek_cache );
-    while ( ( ((redsfs_fb*)redsfs_seek_cache)->flags & FB_IS_LAST) == 0) 
-    {
+    if ( ((redsfs_fb*)redsfs_seek_cache)->data.size > 0 ) {
+      while ( ( ((redsfs_fb*)redsfs_seek_cache)->flags & FB_IS_LAST) == 0) 
+      {
         fileSize += ((redsfs_fb*)redsfs_seek_cache)->data.size;
-	chunk = ((redsfs_fb*)redsfs_seek_cache)->next_blk_addr;
+	chunk = r_fsys.fs_start + ((redsfs_fb*)redsfs_seek_cache)->next_blk_addr;
+        if (chunk > (r_fsys.fs_end - r_fsys.fs_block_size) )
+          break;
 	rres = r_fsys.call_read_f ( chunk, 40, redsfs_seek_cache );
+      }
+      if ( ( ((redsfs_fb*)redsfs_seek_cache)->flags & FB_IS_LAST) ) 
+        fileSize += ((redsfs_fb*)redsfs_seek_cache)->data.size;
     }
-    fileSize += ((redsfs_fb*)redsfs_seek_cache)->data.size;
+
     return fileSize;
 }
 
@@ -112,7 +120,7 @@ void redsfs_seek_to_end()
         return;
    
     // Check we have an open file!
-    if (r_fhand.handle != 1)
+    if (r_fhand.handle < 1)
 	return;
 
     // Loop through file system to last written byte.
@@ -144,7 +152,7 @@ void redsfs_seek_to_end()
 }
 
 // Main function calls
-uint8_t redsfs_mount(redsfs_fs *rfs)
+int8_t redsfs_mount(redsfs_fs *rfs)
 {
     // Check for header of file system, return true if function calls for read succeed with header
     r_fsys.fs_start = rfs->fs_start;
@@ -184,12 +192,12 @@ uint8_t redsfs_unmount()
     return 0;
 }
 
-uint8_t redsfs_open(char * fname, uint8_t mode)
+int8_t redsfs_open(char * fname, uint8_t mode)
 {
     int32_t chunk;
     uint8_t rres;
 
-    r_fhand.handle = -1;
+    r_fhand.handle = 0;
 
     // Check to see if filename is in the filesystem
     // Cycle through all blocks until file is found or not
@@ -221,7 +229,7 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
 
     // If we are opening to write, we can create a file stub here...
     // must also setup the cache memory chunk
-    if ( r_fhand.handle == -1 ) {
+    if ( r_fhand.handle == 0 ) {
         chunk = redsfs_next_empty_block();
 
 	//printf("Next chunk found at %d\r\n", chunk);
@@ -248,7 +256,7 @@ uint8_t redsfs_open(char * fname, uint8_t mode)
 void redsfs_close()
 {
     // Invalidate our handle
-    r_fhand.handle = -1;
+    r_fhand.handle = 0;
     
     // If we are writing, then a block exists in cache to write to memory
     if ( ( r_fhand.mode == MODE_WRITE ) || (r_fhand.mode == MODE_APPEND ) ) {
@@ -274,7 +282,7 @@ uint8_t redsfs_delete( char * name )
     // For all the bits of the file scrub and delete
     while ( ((redsfs_fb*)redsfs_cache)->next_blk_addr )
     {
-        uint32_t nextBlk = ((redsfs_fb*)redsfs_cache)->next_blk_addr ;
+        uint32_t nextBlk = r_fsys.fs_start + ((redsfs_fb*)redsfs_cache)->next_blk_addr;
         memset( redsfs_cache, 0, r_fsys.fs_block_size );
 	r_fsys.call_write_f ( r_fhand.f_cur_blk, r_fsys.fs_block_size, redsfs_cache );
 	r_fsys.call_read_f ( nextBlk, r_fsys.fs_block_size, redsfs_cache );
@@ -324,7 +332,7 @@ size_t redsfs_read( char * buf, size_t size )
         // Are we into the next block?
         if ( (r_fhand.blk_curoffset + readSz) >= BLK_SIZE ) {
             // If we are at the end of the block, move to the next block
-            r_fhand.f_cur_blk = ((redsfs_fb*)redsfs_cache)->next_blk_addr;
+            r_fhand.f_cur_blk = r_fsys.fs_start + ((redsfs_fb*)redsfs_cache)->next_blk_addr;
     	    // Set the next block's offset
             r_fhand.blk_curoffset = BLK_OFFSET_CHUNK; // Chunk offset, the next block wont be a header
         } else {
@@ -387,14 +395,14 @@ size_t redsfs_write( char * buf, size_t size )
 
 	    // Find the next available block
 	    nextBlkAddr = redsfs_next_empty_block();
-	    ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr;
+	    ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr - r_fsys.fs_start;
             
 	    // Re-Commit this block to memory with next block addr and setup the new one.
             rres = r_fsys.call_write_f ( r_fhand.f_cur_blk, 256, redsfs_cache );
 
 	    // If we've not got a new block (no space left) exit
 	    if (nextBlkAddr >= 0) 
-	      ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr;
+	      ((redsfs_fb*)redsfs_cache)->next_blk_addr = nextBlkAddr - r_fsys.fs_start;
             else
               return nextBlkAddr;
 
