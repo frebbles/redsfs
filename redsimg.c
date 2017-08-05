@@ -183,7 +183,7 @@ int readwrite_test()
     int bufSz;
 
     printf ("Opening a file to write...\r\n");
-    int file = redsfs_open( "test.txt", MODE_WRITE );
+    int file = redsfs_open( "test.txt", MODE_APPEND );
     printf ("Writing to file\r\n");
     if (redsfs_write("The quick brown fox jumps over the lazy dog... ", 47) == 0) 
     {
@@ -196,14 +196,16 @@ int readwrite_test()
 
     printf("Reopening read to read contents back...\r\n");
     file = redsfs_open("test.txt", MODE_READ );
-    bufSz = redsfs_read(buf, 256);
-    if (bufSz > 0)
-    {
-        printf("READ: %s\r\n", buf);
-    } else {
+    while ( (bufSz = redsfs_read(buf, 255)) > 0) {
+      if (bufSz > 0)
+      {
+        printf("READ: %d bytes: %s\r\n", bufSz,  buf);
+      } else {
 	redsfs_close();
 	redsfs_unmount();
         die("Could not read from redsfs...");
+      }
+      memset(buf, 0, 256);
     }
 
     printf ("Opening a file to append some more\r\n");
@@ -221,14 +223,16 @@ int readwrite_test()
     printf("Reopening to read appended text\r\n");
     file = redsfs_open("test.txt", MODE_READ );
     memset(buf, 0, 256);
-    bufSz = redsfs_read(buf, 256);
-    if (bufSz > 0) 
-    {
-        printf("READ: %s\r\n", buf);
-    } else {
+    while ( (bufSz = redsfs_read(buf, 255)) > 0) {
+      if (bufSz > 0) 
+      {
+        printf("READ: %d bytes: %s\r\n", bufSz, buf);
+      } else {
         redsfs_close();
         redsfs_unmount();
         die("Could not read from redsfs...");
+      }
+      memset(buf, 0, 256);
     }
     //printf("Deleting file\r\n");
     //redsfs_delete("test.txt");
