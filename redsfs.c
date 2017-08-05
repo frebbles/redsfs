@@ -37,7 +37,7 @@ int32_t redsfs_next_empty_block()
         if ( ((redsfs_fb*)redsfs_seek_cache)->flags & ( FB_IS_USED ) ) {
 	    continue;
 	} else {
-            return (chunk - r_fsys.fs_start);
+            return chunk;
 	}
     }
     printf("Out of space\r\n");
@@ -182,6 +182,11 @@ uint8_t redsfs_unmount()
     // Check if mounted flag set, unset.
     if (r_fsys.mounted == 1) r_fsys.mounted = 0;
         else return -1;
+
+    // If file open close it
+    if (r_fhand.handle != 0) {
+      redsfs_close();
+    }
 
     // Free/release allocated memory
     free(redsfs_cache);
